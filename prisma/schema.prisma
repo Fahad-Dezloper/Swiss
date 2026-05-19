@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id             String   @id @default(cuid())
+  name           String
+  complianceMode Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  users       User[]
+  invoices    Invoice[]
+  payrollRuns PayrollRun[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  orgId         String?
+  walletAddress String   @unique
+  email         String?  @unique
+  displayName   String?
+  createdAt     DateTime @default(now())
+
+  org                 Organization?     @relation(fields: [orgId], references: [id])
+  contacts            Contact[]
+  sentPayments        Payment[]         @relation("SenderPayments")
+  receivedPayments    Payment[]         @relation("RecipientPayments")
+  disclosuresIssued   DisclosureEvent[] @relation("DisclosedBy")
+  disclosuresReceived DisclosureEvent[] @relation("DisclosedTo")
+  proofEvents         ProofEvent[]
+}
+
+model Contact {
+  id             String @id @default(cuid())
+  userId         String
+  alias          String
+  destinationRef String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Invoice {
+  id         String        @id @default(cuid())
+  orgId      String
+  invoiceRef String        @unique
+  amount     BigInt
+  currency   String        @default("USDC")
+  dueDate    DateTime?
+  memo       String?
+  status     InvoiceStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  org     Organization @relation(fields: [orgId], references: [id])
+  payment Payment?
+}
+
+model PayrollRun {
+  id          String           @id @default(cuid())
+  orgId       String
+  periodLabel String
+  status      PayrollRunStatus @default(DRAFT)
+  createdAt   DateTime         @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id])
+  payments Payment[]
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  type            PaymentType
+  invoiceId       String?       @unique
+  payrollRunId    String?
+  senderUserId    String
+  recipientUserId String?
+  recipientAddr   String
+  rail            String        @default("umbra")
+  status          PaymentStatus @default(PENDING)
+  txSignature     String?
+  amount          BigInt
+  currency        String        @default("USDC")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  sender     User        @relation("SenderPayments", fields: [senderUserId], references: [id])
+  recipient  User?       @relation("RecipientPayments", fields: [recipientUserId], references: [id])
+  invoice    Invoice?    @relation(fields: [invoiceId], references: [id])
+  payrollRun PayrollRun? @relation(fields: [payrollRunId], references: [id])
+  receipt    Receipt?
+  proofEvents ProofEvent[]
+}
+
+model Receipt {
+  id             String   @id @default(cuid())
+  paymentId      String   @unique
+  encryptedBlob  String
+  receiptHash    String   @unique
+  disclosedFields Json?
+  createdAt      DateTime @default(now())
+
+  payment          Payment           @relation(fields: [paymentId], references: [id])
+  disclosureEvents DisclosureEvent[]
+}
+
+model ProofEvent {
+  id                  String    @id @default(cuid())
+  paymentId           String
+  proofType           ProofType
+  generatedById       String
+  verifierPackageHash String?
+  verifierToken       String?   @unique
+  expiresAt           DateTime?
+  createdAt           DateTime  @default(now())
+
+  payment     Payment @relation(fields: [paymentId], references: [id])
+  generatedBy User    @relation(fields: [generatedById], references: [id])
+}
+
+model DisclosureEvent {
+  id               String    @id @default(cuid())
+  receiptId        String
+  disclosedById    String
+  disclosedToId    String?
+  disclosedToEmail String?
+  fieldsJson       Json
+  packageHash      String
+  verifierToken    String    @unique
+  expiresAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  receipt     Receipt @relation(fields: [receiptId], references: [id])
+  disclosedBy User    @relation("DisclosedBy", fields: [disclosedById], references: [id])
+  disclosedTo User?   @relation("DisclosedTo", fields: [disclosedToId], references: [id])
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentType {
+  INVOICE
+  PAYROLL
+}
+
+enum PaymentStatus {
+  PENDING
+  DELIVERED
+  CLAIMED
+  FAILED
+}
+
+enum ProofType {
+  DELIVERED
+  CLAIMED
+  ACKNOWLEDGED
+}
