@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { useWallets } from '@privy-io/react-auth/solana'
 import { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { truncateAddress, formatDate } from '@/lib/utils'
-import { CheckCircle, FileDown, BookUser } from 'lucide-react'
+import { CheckCircle, FileDown, BookUser, ShieldCheck, Zap } from 'lucide-react'
+import { useUmbraClient } from '@/hooks/use-umbra-client'
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
+const USDC_DECIMALS = 6
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
@@ -43,6 +45,9 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
   const [notFound, setNotFound] = useState(false)
   const [completing, setCompleting] = useState(false)
 
+  // Rail selection
+  const [rail, setRail] = useState<'sol' | 'umbra'>('sol')
+
   // Contacts for address picker
   const [contacts, setContacts] = useState<Contact[]>([])
   const [showPicker, setShowPicker] = useState(false)
@@ -52,7 +57,12 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
   const [amount, setAmount] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
-  const [sendStep, setSendStep] = useState<'idle' | 'building' | 'signing' | 'confirming' | 'recording'>('idle')
+  const [sendStep, setSendStep] = useState<string>('idle')
+
+  // Umbra
+  const umbra = useUmbraClient(connectedWallet)
+  const [recipientRegistered, setRecipientRegistered] = useState<boolean | null>(null)
+  const [checkingRecipient, setCheckingRecipient] = useState(false)
 
   async function fetchRun() {
     try {
@@ -93,6 +103,21 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
     }
   }
 
+  // Check if recipient is registered on Umbra when rail=umbra and address changes
+  useEffect(() => {
+    if (rail !== 'umbra' || !recipientAddr.trim() || umbra.status !== 'ready') {
+      setRecipientRegistered(null)
+      return
+    }
+    let cancelled = false
+    setCheckingRecipient(true)
+    umbra.checkRecipientRegistered(recipientAddr.trim()).then((registered) => {
+      if (!cancelled) { setRecipientRegistered(registered); setCheckingRecipient(false) }
+    }).catch(() => { if (!cancelled) setCheckingRecipient(false) })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rail, recipientAddr, umbra.status])
+
   async function handlePayout(e: React.FormEvent) {
     e.preventDefault()
     if (!recipientAddr.trim() || !amount.trim()) return
@@ -102,57 +127,93 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
     setSendError(null)
 
     try {
-      setSendStep('building')
-      const connection = new Connection(RPC_URL, 'confirmed')
-      const senderPubkey = new PublicKey(connectedWallet.address)
+      if (rail === 'umbra') {
+        // --- Umbra stealth transfer ---
+        if (!umbra.isRegistered) throw new Error('Register with Umbra first (click Register below)')
+        if (recipientRegistered === false) throw new Error('Recipient has not registered with Umbra')
 
-      let recipientPubkey: PublicKey
-      try {
-        recipientPubkey = new PublicKey(recipientAddr.trim())
-      } catch {
-        throw new Error('Invalid recipient Solana address')
-      }
+        const usdcAmount = parseFloat(amount.trim())
+        if (isNaN(usdcAmount) || usdcAmount <= 0) throw new Error('Amount must be positive')
+        const microUsdc = BigInt(Math.round(usdcAmount * 10 ** USDC_DECIMALS))
 
-      const solAmount = parseFloat(amount.trim())
-      if (isNaN(solAmount) || solAmount <= 0) throw new Error('Amount must be a positive number')
-      const lamports = Math.round(solAmount * LAMPORTS_PER_SOL)
+        const { txSignature } = await umbra.sendUsdc({
+          recipientAddress: recipientAddr.trim(),
+          amount: microUsdc,
+          onStep: (step) => setSendStep(step),
+        })
 
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({ fromPubkey: senderPubkey, toPubkey: recipientPubkey, lamports })
-      )
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
-      transaction.recentBlockhash = blockhash
-      transaction.feePayer = senderPubkey
+        setSendStep('Recording receipt…')
+        const res = await fetch(`/api/payroll-runs/${id}/payout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientAddr: recipientAddr.trim(),
+            amount: String(microUsdc),
+            currency: 'USDC',
+            txSignature,
+            senderWallet: connectedWallet.address,
+            rail: 'umbra',
+          }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error((data as { error?: string }).error || `Failed: ${res.status}`)
+        }
+      } else {
+        // --- Direct SOL transfer ---
+        setSendStep('Building transaction…')
+        const connection = new Connection(RPC_URL, 'confirmed')
+        const senderPubkey = new PublicKey(connectedWallet.address)
 
-      setSendStep('signing')
-      let txSignature: string
-      try {
-        const serialized = transaction.serialize({ requireAllSignatures: false })
-        const { signedTransaction } = await connectedWallet.signTransaction({ transaction: serialized })
-        txSignature = await connection.sendRawTransaction(signedTransaction)
-      } catch (signErr) {
-        throw new Error(signErr instanceof Error ? `Wallet rejected: ${signErr.message}` : 'Wallet signing failed')
-      }
+        let recipientPubkey: PublicKey
+        try {
+          recipientPubkey = new PublicKey(recipientAddr.trim())
+        } catch {
+          throw new Error('Invalid recipient Solana address')
+        }
 
-      setSendStep('confirming')
-      await connection.confirmTransaction({ signature: txSignature, blockhash, lastValidBlockHeight }, 'confirmed')
+        const solAmount = parseFloat(amount.trim())
+        if (isNaN(solAmount) || solAmount <= 0) throw new Error('Amount must be a positive number')
+        const lamports = Math.round(solAmount * LAMPORTS_PER_SOL)
 
-      setSendStep('recording')
-      const res = await fetch(`/api/payroll-runs/${id}/payout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientAddr: recipientAddr.trim(),
-          amount: String(lamports),
-          currency: 'SOL',
-          txSignature,
-          senderWallet: connectedWallet.address,
-        }),
-      })
+        const transaction = new Transaction().add(
+          SystemProgram.transfer({ fromPubkey: senderPubkey, toPubkey: recipientPubkey, lamports })
+        )
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed')
+        transaction.recentBlockhash = blockhash
+        transaction.feePayer = senderPubkey
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || `Failed: ${res.status}`)
+        setSendStep('Approve in wallet…')
+        let txSignature: string
+        try {
+          const serialized = transaction.serialize({ requireAllSignatures: false })
+          const { signedTransaction } = await connectedWallet.signTransaction({ transaction: serialized })
+          txSignature = await connection.sendRawTransaction(signedTransaction)
+        } catch (signErr) {
+          throw new Error(signErr instanceof Error ? `Wallet rejected: ${signErr.message}` : 'Wallet signing failed')
+        }
+
+        setSendStep('Confirming on-chain…')
+        await connection.confirmTransaction({ signature: txSignature, blockhash, lastValidBlockHeight }, 'confirmed')
+
+        setSendStep('Recording receipt…')
+        const res = await fetch(`/api/payroll-runs/${id}/payout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipientAddr: recipientAddr.trim(),
+            amount: String(lamports),
+            currency: 'SOL',
+            txSignature,
+            senderWallet: connectedWallet.address,
+            rail: 'solana',
+          }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error((data as { error?: string }).error || `Failed: ${res.status}`)
+        }
       }
 
       setRecipientAddr('')
@@ -166,20 +227,16 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  function formatSol(lamports: string): string {
-    return (Number(lamports) / LAMPORTS_PER_SOL).toFixed(4) + ' SOL'
+  function formatAmount(amount: string, currency: string): string {
+    if (currency === 'USDC') {
+      return (Number(amount) / 10 ** USDC_DECIMALS).toFixed(2) + ' USDC'
+    }
+    return (Number(amount) / LAMPORTS_PER_SOL).toFixed(4) + ' SOL'
   }
 
   const totalSol = run
-    ? run.payments.reduce((sum, p) => sum + Number(p.amount) / LAMPORTS_PER_SOL, 0)
+    ? run.payments.filter(p => p.currency !== 'USDC').reduce((sum, p) => sum + Number(p.amount) / LAMPORTS_PER_SOL, 0)
     : 0
-
-  const stepLabel: Record<string, string> = {
-    building: 'Building transaction…',
-    signing: 'Approve in wallet…',
-    confirming: 'Confirming on-chain…',
-    recording: 'Recording receipt…',
-  }
 
   if (loading) return <div className="flex items-center justify-center py-24 text-sm text-[#888]">Loading…</div>
   if (notFound || !run) return (
@@ -263,7 +320,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
               {run.payments.map((payment) => (
                 <tr key={payment.id} className="hover:bg-black/30">
                   <td className="px-6 py-4 font-mono text-white">{truncateAddress(payment.recipientAddr)}</td>
-                  <td className="px-6 py-4 font-mono text-white">{formatSol(payment.amount)}</td>
+                  <td className="px-6 py-4 font-mono text-white">{formatAmount(payment.amount, payment.currency)}</td>
                   <td className="px-6 py-4">
                     {payment.txSignature ? (
                       <a
@@ -294,18 +351,77 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-sm font-semibold text-white">Send Payout</h2>
-              <p className="text-xs text-[#888] mt-1">Real SOL transfer on Solana devnet, confirmed on-chain.</p>
+              <p className="text-xs text-[#888] mt-1">
+                {rail === 'umbra'
+                  ? 'Private USDC transfer via Umbra stealth pool — no on-chain link between sender and recipient.'
+                  : 'Direct SOL transfer on Solana devnet, confirmed on-chain.'}
+              </p>
             </div>
-            {contacts.length > 0 && (
-              <button
-                onClick={() => setShowPicker(!showPicker)}
-                className="flex items-center gap-1.5 text-xs text-[#888] hover:text-white transition-colors"
-              >
-                <BookUser className="h-3.5 w-3.5" />
-                {showPicker ? 'Hide' : 'Pick from contacts'}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {contacts.length > 0 && (
+                <button
+                  onClick={() => setShowPicker(!showPicker)}
+                  className="flex items-center gap-1.5 text-xs text-[#888] hover:text-white transition-colors"
+                >
+                  <BookUser className="h-3.5 w-3.5" />
+                  {showPicker ? 'Hide' : 'Contacts'}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Rail toggle */}
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-black border border-[#222] w-fit">
+            <button
+              type="button"
+              onClick={() => setRail('sol')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'sol' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+            >
+              <Zap className="h-3 w-3" />
+              SOL Direct
+            </button>
+            <button
+              type="button"
+              onClick={() => setRail('umbra')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'umbra' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              Umbra Private
+            </button>
+          </div>
+
+          {/* Umbra status bar */}
+          {rail === 'umbra' && connectedWallet && (
+            <div className="rounded-lg border border-[#222] bg-black px-4 py-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`h-1.5 w-1.5 rounded-full ${umbra.status === 'ready' ? 'bg-white' : umbra.status === 'error' ? 'bg-[#888]' : 'bg-[#555] animate-pulse'}`} />
+                  <span className="text-xs text-[#888]">
+                    {umbra.status === 'idle' && 'Umbra not initialized'}
+                    {umbra.status === 'initializing' && 'Connecting to Umbra…'}
+                    {umbra.status === 'registering' && 'Registering on Umbra…'}
+                    {umbra.status === 'ready' && (umbra.isRegistered ? 'Registered on Umbra' : 'Connected — not registered')}
+                    {umbra.status === 'error' && `Error: ${umbra.error}`}
+                  </span>
+                </div>
+                {umbra.status === 'ready' && !umbra.isRegistered && (
+                  <button
+                    type="button"
+                    onClick={umbra.register}
+                    className="text-xs text-white underline hover:no-underline"
+                  >
+                    Register →
+                  </button>
+                )}
+              </div>
+              {umbra.isRegistered && (
+                <p className="text-[10px] text-[#555]">
+                  Recipient must also be registered on Umbra to receive stealth transfers.
+                  ZK proof generation takes ~30–60s.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Contact picker */}
           {showPicker && contacts.length > 0 && (
@@ -336,23 +452,36 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
                 className="w-full px-3 py-2 bg-black border border-[#222] rounded-lg text-sm text-white placeholder-[#555] focus:outline-none focus:ring-1 focus:ring-white focus:border-white font-mono"
                 required
               />
+              {rail === 'umbra' && recipientAddr.trim() && (
+                <p className="text-xs">
+                  {checkingRecipient
+                    ? <span className="text-[#555]">Checking Umbra registration…</span>
+                    : recipientRegistered === true
+                    ? <span className="text-white">✓ Recipient registered on Umbra</span>
+                    : recipientRegistered === false
+                    ? <span className="text-[#888]">✗ Recipient not registered on Umbra — cannot send privately</span>
+                    : null}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-[#888] uppercase tracking-wider">Amount (SOL)</label>
+              <label className="block text-xs font-medium text-[#888] uppercase tracking-wider">
+                Amount ({rail === 'umbra' ? 'USDC' : 'SOL'})
+              </label>
               <input
                 type="text"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 0.1"
+                placeholder={rail === 'umbra' ? 'e.g. 100' : 'e.g. 0.1'}
                 className="w-full px-3 py-2 bg-black border border-[#222] rounded-lg text-sm text-white placeholder-[#555] focus:outline-none focus:ring-1 focus:ring-white focus:border-white font-mono"
                 required
               />
               <p className="text-xs text-[#555]">
-                Devnet SOL — get free SOL from{' '}
-                <a href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer" className="text-[#888] hover:text-white underline">
-                  faucet.solana.com
-                </a>
+                {rail === 'umbra'
+                  ? 'Devnet USDC — swap from devnet SOL on Jupiter.'
+                  : <>Devnet SOL — get free SOL from{' '}
+                    <a href="https://faucet.solana.com" target="_blank" rel="noopener noreferrer" className="text-[#888] hover:text-white underline">faucet.solana.com</a></>}
               </p>
             </div>
 
@@ -366,10 +495,17 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
 
             <button
               type="submit"
-              disabled={sending || !recipientAddr.trim() || !amount.trim() || !connectedWallet}
+              disabled={
+                sending || !recipientAddr.trim() || !amount.trim() || !connectedWallet ||
+                (rail === 'umbra' && (!umbra.isRegistered || recipientRegistered === false))
+              }
               className="px-4 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {sendStep !== 'idle' ? stepLabel[sendStep] : connectedWallet ? 'Sign & Send on Devnet' : 'Connect Wallet First'}
+              {sendStep !== 'idle'
+                ? sendStep
+                : connectedWallet
+                  ? rail === 'umbra' ? 'Send via Umbra (Private)' : 'Sign & Send on Devnet'
+                  : 'Connect Wallet First'}
             </button>
           </form>
         </div>
