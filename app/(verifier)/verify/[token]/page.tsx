@@ -129,8 +129,9 @@ export default async function VerifierPage({
             hidden and cannot be deduced from this link.
           </p>
           <p className="text-sm text-[#888] leading-relaxed">
-            This receipt is anchored on-chain. The information shown here has been verified
-            against the original transaction hash and cannot be forged.
+            Full transaction details are encrypted with AES-256-GCM and can only be decrypted
+            by the sender or recipient wallet. To access the full receipt, the authorized party
+            must sign a verification message from their wallet.
           </p>
         </div>
 

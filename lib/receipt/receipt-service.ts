@@ -1,40 +1,18 @@
 import crypto from 'node:crypto'
 import { db } from '@/lib/db'
 import type { Payment, Receipt } from '@/app/generated/prisma/client'
-import type { RailTxMeta } from '@/lib/umbra/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getEncryptionKey(): Buffer {
-  const raw = process.env.RECEIPT_ENCRYPTION_KEY
-  if (!raw) throw new Error('Missing env: RECEIPT_ENCRYPTION_KEY')
-  const key = Buffer.from(raw, 'hex')
-  if (key.byteLength !== 32) throw new Error('RECEIPT_ENCRYPTION_KEY must be 32 bytes (64 hex chars)')
-  return key
-}
-
 function sha256Hex(input: string): string {
   return crypto.createHash('sha256').update(input, 'utf8').digest('hex')
 }
 
-function aesGcmEncrypt(plaintext: string, key: Buffer): string {
-  const iv = crypto.randomBytes(12) // 96-bit IV for GCM
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
-  const authTag = cipher.getAuthTag()
-  // Encode as iv:authTag:ciphertext — all hex
-  return [iv.toString('hex'), authTag.toString('hex'), encrypted.toString('hex')].join(':')
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
- * Generate a receipt hash from canonical fields.
- * paymentId + txSignature + amount (string) + timestamp (ISO)
+ * Build a receipt hash from the real on-chain tx signature + payment metadata.
+ * This is a fingerprint, NOT encryption — just a canonical identifier.
  */
 function buildReceiptHash(
   paymentId: string,
@@ -46,41 +24,32 @@ function buildReceiptHash(
   return sha256Hex(canonical)
 }
 
-export async function createReceipt(payment: Payment, railTxMeta: RailTxMeta): Promise<Receipt> {
-  const timestamp = new Date(railTxMeta.confirmedAt)
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
+/**
+ * Create a receipt from a confirmed on-chain payment.
+ * No encryption — the receipt is just a record linking the real tx to payment metadata.
+ */
+export async function createReceipt(
+  payment: Payment,
+  senderWallet: string,
+): Promise<Receipt> {
   const receiptHash = buildReceiptHash(
     payment.id,
-    railTxMeta.txSignature,
+    payment.txSignature ?? '',
     payment.amount,
-    timestamp,
+    payment.updatedAt,
   )
-
-  const fullFields = {
-    paymentId: payment.id,
-    txSignature: railTxMeta.txSignature,
-    treeIndex: railTxMeta.treeIndex,
-    insertionIndex: railTxMeta.insertionIndex,
-    amount: payment.amount.toString(),
-    currency: payment.currency,
-    rail: payment.rail,
-    senderUserId: payment.senderUserId,
-    recipientAddr: payment.recipientAddr,
-    invoiceId: payment.invoiceId ?? null,
-    payrollRunId: payment.payrollRunId ?? null,
-    type: payment.type,
-    confirmedAt: timestamp.toISOString(),
-    receiptHash,
-  }
-
-  const key = getEncryptionKey()
-  const encryptedBlob = aesGcmEncrypt(JSON.stringify(fullFields), key)
 
   return db.receipt.create({
     data: {
       paymentId: payment.id,
-      encryptedBlob,
       receiptHash,
+      senderWallet,
+      recipientWallet: payment.recipientAddr,
+      // No encryptedBlob — the tx is real and verifiable on-chain
     },
   })
 }
@@ -89,26 +58,85 @@ export async function getReceipt(paymentId: string): Promise<Receipt | null> {
   return db.receipt.findUnique({ where: { paymentId } })
 }
 
-// ---------------------------------------------------------------------------
-// Namespace object (consumed by pre-existing API routes)
-// ---------------------------------------------------------------------------
-
 /**
- * Route-friendly wrapper: derives RailTxMeta from Payment fields already
- * persisted on the record (txSignature + updatedAt).
+ * Get full payment details for a receipt, gated by wallet authorization.
+ * Only the sender or recipient wallet can view the linked payment metadata.
  */
-async function createReceiptFromPayment(payment: Payment): Promise<Receipt> {
-  if (!payment.txSignature) throw new Error(`Payment ${payment.id} has no txSignature`)
-  const meta: RailTxMeta = {
-    txSignature: payment.txSignature,
-    treeIndex: 0,
-    insertionIndex: 0,
-    confirmedAt: payment.updatedAt.getTime(),
+export async function getReceiptDetails(
+  paymentId: string,
+  walletAddress: string,
+): Promise<{
+  receipt: {
+    id: string
+    paymentId: string
+    receiptHash: string
+    senderWallet: string
+    recipientWallet: string
+    createdAt: string
   }
-  return createReceipt(payment, meta)
+  payment: {
+    id: string
+    type: string
+    status: string
+    txSignature: string | null
+    amount: string
+    currency: string
+    recipientAddr: string
+    rail: string
+    createdAt: string
+    payrollRunId: string | null
+  }
+} | null> {
+  const receipt = await db.receipt.findUnique({
+    where: { paymentId },
+    include: {
+      payment: {
+        include: {
+          payrollRun: { select: { periodLabel: true } },
+        },
+      },
+    },
+  })
+
+  if (!receipt) return null
+
+  // Authorization: only sender or recipient
+  const isAuthorized =
+    receipt.senderWallet === walletAddress ||
+    receipt.recipientWallet === walletAddress
+
+  if (!isAuthorized) return null
+
+  return {
+    receipt: {
+      id: receipt.id,
+      paymentId: receipt.paymentId,
+      receiptHash: receipt.receiptHash,
+      senderWallet: receipt.senderWallet,
+      recipientWallet: receipt.recipientWallet,
+      createdAt: receipt.createdAt.toISOString(),
+    },
+    payment: {
+      id: receipt.payment.id,
+      type: receipt.payment.type,
+      status: receipt.payment.status,
+      txSignature: receipt.payment.txSignature,
+      amount: receipt.payment.amount.toString(),
+      currency: receipt.payment.currency,
+      recipientAddr: receipt.payment.recipientAddr,
+      rail: receipt.payment.rail,
+      createdAt: receipt.payment.createdAt.toISOString(),
+      payrollRunId: receipt.payment.payrollRunId,
+    },
+  }
 }
 
+// ---------------------------------------------------------------------------
+// Namespace object (consumed by API routes)
+// ---------------------------------------------------------------------------
+
 export const receiptService = {
-  createReceipt: createReceiptFromPayment,
+  createReceipt,
   getReceipt,
+  getReceiptDetails,
 }

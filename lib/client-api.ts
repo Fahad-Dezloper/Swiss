@@ -64,3 +64,36 @@ export async function getDashboard(orgId: string) {
   if (!res.ok) throw new Error('Failed to fetch dashboard')
   return res.json()
 }
+
+/**
+ * Decrypt a receipt by proving wallet ownership via signature.
+ * Only sender or recipient wallets are authorized.
+ */
+export async function decryptReceipt(
+  paymentId: string,
+  message: string,
+  signature: string,
+  walletAddress: string,
+) {
+  const res = await fetch(`/api/receipts/${paymentId}/decrypt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, signature, walletAddress }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(
+      (err as { error?: string }).error || `Decrypt failed: ${res.status}`,
+    )
+  }
+  return res.json()
+}
+
+/**
+ * Get receipt metadata (non-decrypted) for a payment.
+ */
+export async function getReceiptMeta(paymentId: string) {
+  const res = await fetch(`/api/receipts/${paymentId}`)
+  if (!res.ok) throw new Error('Failed to fetch receipt')
+  return res.json()
+}

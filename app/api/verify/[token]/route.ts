@@ -1,5 +1,4 @@
 import { db } from '@/lib/db'
-import { disclosureService } from '@/lib/disclosure/disclosure-service'
 
 export async function GET(
   _request: Request,
@@ -8,31 +7,40 @@ export async function GET(
   try {
     const { token } = await params
 
-    // Try ProofEvent first
     const proofEvent = await db.proofEvent.findUnique({
       where: { verifierToken: token },
+      include: {
+        payment: {
+          include: {
+            receipt: { select: { receiptHash: true } },
+            payrollRun: { select: { periodLabel: true } },
+          },
+        },
+      },
     })
 
-    if (proofEvent) {
-      return Response.json({
-        type: 'proof',
-        proofType: proofEvent.proofType,
-        paymentId: proofEvent.paymentId,
-        createdAt: proofEvent.createdAt,
-      })
+    if (!proofEvent) {
+      return Response.json({ error: 'Token not found' }, { status: 404 })
     }
 
-    // Try DisclosureEvent
-    const disclosureEvent = await db.disclosureEvent.findUnique({
-      where: { verifierToken: token },
+    const { payment } = proofEvent
+
+    return Response.json({
+      type: 'proof',
+      proofType: proofEvent.proofType,
+      verifierPackageHash: proofEvent.verifierPackageHash,
+      createdAt: proofEvent.createdAt,
+      expiresAt: proofEvent.expiresAt,
+      fields: {
+        payment_period: payment.payrollRun?.periodLabel ?? null,
+        amount: (Number(payment.amount) / 1_000_000).toFixed(6),
+        currency: payment.currency,
+        settlement_status: payment.status,
+        timestamp: payment.createdAt,
+        rail: payment.rail ?? 'umbra-stealth',
+      },
+      receiptHash: payment.receipt?.receiptHash ?? null,
     })
-
-    if (disclosureEvent) {
-      const verifierPackage = await disclosureService.verifyDisclosure(token)
-      return Response.json(verifierPackage)
-    }
-
-    return Response.json({ error: 'Token not found' }, { status: 404 })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Internal server error'
     return Response.json({ error: msg }, { status: 500 })

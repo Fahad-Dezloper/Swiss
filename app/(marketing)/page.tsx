@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LockKeyhole, FileText, Eye } from 'lucide-react'
+import { LockKeyhole, Receipt, ShieldCheck, BookUser } from 'lucide-react'
 
 export default function LandingPage() {
   return (
@@ -13,10 +13,7 @@ export default function LandingPage() {
             </div>
             <span className="text-white font-semibold tracking-tight">PSR</span>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-sm text-[#888] hover:text-white transition-colors"
-          >
+          <Link href="/dashboard" className="text-sm text-[#888] hover:text-white transition-colors">
             Open Dashboard →
           </Link>
         </div>
@@ -24,75 +21,87 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="flex-1 flex flex-col items-center justify-center px-6 py-24 text-center">
-        <div className="max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#222] bg-[#111] mb-8">
+        <div className="max-w-2xl mx-auto space-y-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#222] bg-[#111]">
             <span className="h-1.5 w-1.5 rounded-full bg-white" />
-            <span className="text-xs text-[#888]">Private Settlement Receipts</span>
+            <span className="text-xs text-[#888]">Private Payroll on Solana</span>
           </div>
 
-          <h1 className="text-5xl font-bold text-white leading-tight tracking-tight mb-6">
-            Send money privately.
+          <h1 className="text-5xl font-bold text-white leading-tight tracking-tight">
+            Pay your team privately.
             <br />
-            <span className="text-[#888]">Prove it later.</span>
+            <span className="text-[#888]">Prove it to anyone.</span>
           </h1>
 
-          <p className="text-lg text-[#888] mb-10 leading-relaxed max-w-lg mx-auto">
-            Settle invoices on-chain without exposing your counterparty, amount, or timing —
-            then share cryptographic proof with exactly who needs it, when they need it.
+          <p className="text-lg text-[#888] leading-relaxed max-w-lg mx-auto">
+            Real SOL transfers on Solana. Every payout generates a cryptographic receipt hash
+            — share it with an auditor without revealing who got paid or how much.
           </p>
 
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-[#e5e5e5] text-black rounded-lg font-medium transition-colors duration-150"
-          >
-            Open Dashboard
-          </Link>
-        </div>
-      </section>
-
-      {/* Value props */}
-      <section className="border-t border-[#222] px-6 py-20">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center">
-              <LockKeyhole className="h-5 w-5 text-white" />
-            </div>
-            <h3 className="text-white font-semibold">Private Transfer</h3>
-            <p className="text-sm text-[#888] leading-relaxed">
-              Payments are routed through stealth addresses. No observer can link sender to
-              recipient from the chain alone.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center">
-              <FileText className="h-5 w-5 text-white" />
-            </div>
-            <h3 className="text-white font-semibold">Cryptographic Receipt</h3>
-            <p className="text-sm text-[#888] leading-relaxed">
-              Every settlement generates a tamper-proof receipt hash anchored to the transaction.
-              You hold the receipt; we hold nothing.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="h-10 w-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center">
-              <Eye className="h-5 w-5 text-white" />
-            </div>
-            <h3 className="text-white font-semibold">Selective Disclosure</h3>
-            <p className="text-sm text-[#888] leading-relaxed">
-              Generate a verifier link revealing only the fields you choose — invoice ref,
-              amount, status — and nothing more.
-            </p>
+          <div className="flex items-center justify-center gap-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-[#e5e5e5] text-black rounded-lg font-medium transition-colors"
+            >
+              Open Dashboard
+            </Link>
+            <Link
+              href="/payroll/new"
+              className="inline-flex items-center gap-2 px-6 py-3 border border-[#333] hover:border-[#555] text-white rounded-lg font-medium transition-colors text-sm"
+            >
+              New Payroll Run →
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* How it works */}
+      <section className="border-t border-[#222] px-6 py-16">
+        <div className="max-w-3xl mx-auto space-y-8">
+          <p className="text-xs text-[#555] uppercase tracking-widest text-center">How it works</p>
+          <div className="space-y-0">
+            {[
+              { step: '01', title: 'Create a payroll run', desc: 'Name it by period — "May 2026 W1". Add as many recipients as you need.' },
+              { step: '02', title: 'Connect Phantom & send', desc: 'Real SOL transfer hits Solana devnet. You approve in your wallet. Transaction confirmed on-chain.' },
+              { step: '03', title: 'Receipt hash is generated', desc: 'SHA-256 fingerprint of paymentId + txSignature + amount + timestamp. Tamper-proof.' },
+              { step: '04', title: 'Share proof or keep it private', desc: 'Verifier link proves payment happened. Receipt page requires wallet signature to unlock full details — only sender or recipient can see them.' },
+            ].map(({ step, title, desc }) => (
+              <div key={step} className="flex gap-6 py-5 border-b border-[#222] last:border-0">
+                <span className="text-xs font-mono text-[#555] pt-0.5 shrink-0 w-6">{step}</span>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-white">{title}</p>
+                  <p className="text-sm text-[#888] leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-[#222] px-6 py-16">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[
+            { icon: LockKeyhole, title: 'Private on-chain', desc: 'Sender and recipient are not linked on the public ledger.' },
+            { icon: Receipt, title: 'Cryptographic receipt', desc: 'Every payout gets a SHA-256 hash anchored to the real tx.' },
+            { icon: ShieldCheck, title: 'Wallet-gated access', desc: 'Only sender or recipient can unlock full details — prove ownership by signing.' },
+            { icon: BookUser, title: 'Compliance export', desc: 'Export a full payroll run with attestation hash for auditors.' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex flex-col gap-3">
+              <div className="h-9 w-9 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center">
+                <Icon className="h-4 w-4 text-white" />
+              </div>
+              <p className="text-sm font-semibold text-white">{title}</p>
+              <p className="text-sm text-[#888] leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <footer className="border-t border-[#222] px-6 py-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <span className="text-xs text-[#555]">Private Settlement Receipts</span>
-          <span className="text-xs text-[#555]">Finance-grade privacy, on-chain.</span>
+          <span className="text-xs text-[#555]">Pay anyone. Prove it later.</span>
         </div>
       </footer>
     </main>
