@@ -1,17 +1,17 @@
 import { db } from '@/lib/db'
 
+async function getOrCreateDefaultOrg(): Promise<string> {
+  const existing = await db.organization.findFirst()
+  if (existing) return existing.id
+  const created = await db.organization.create({ data: { name: 'Default' } })
+  return created.id
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const orgIdParam = searchParams.get('orgId')
-
-    const orgId: string = orgIdParam
-      ? orgIdParam
-      : ((await db.organization.findFirst())?.id ?? '')
-
-    if (!orgId) {
-      return Response.json({ error: 'No organization found' }, { status: 400 })
-    }
+    const orgId = orgIdParam || (await getOrCreateDefaultOrg())
 
     const runs = await db.payrollRun.findMany({
       where: { orgId },
@@ -42,10 +42,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { orgId, periodLabel } = body
 
-    const resolvedOrgId: string = (typeof orgId === 'string' && orgId)
-      ? orgId
-      : ((await db.organization.findFirst())?.id ?? '')
-    if (!resolvedOrgId) return Response.json({ error: 'No organization found' }, { status: 400 })
+    const resolvedOrgId = (typeof orgId === 'string' && orgId) ? orgId : await getOrCreateDefaultOrg()
 
     if (!periodLabel || typeof periodLabel !== 'string') {
       return Response.json({ error: 'periodLabel is required' }, { status: 400 })
