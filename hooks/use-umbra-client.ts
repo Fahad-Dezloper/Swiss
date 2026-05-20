@@ -20,7 +20,7 @@ const USDC_MINT = (process.env.NEXT_PUBLIC_UMBRA_USDC_MINT || '4zMMC9srt5Ri5X14G
 
 export type UmbraStatus = 'idle' | 'initializing' | 'registering' | 'ready' | 'error'
 
-export interface StealthPoolNote {
+export interface ClaimableUtxo {
   id: string
   amount: bigint
   mint: string
@@ -29,9 +29,6 @@ export interface StealthPoolNote {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   _raw: any
 }
-
-// Keep ClaimableUtxo as an alias for backward compatibility with existing UI code
-export type ClaimableUtxo = StealthPoolNote
 
 export interface UmbraClientHook {
   status: UmbraStatus
@@ -113,7 +110,7 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
           setIsRegistered(registered)
           setCachedRegistered(wallet.address, registered)
           setStatus('ready')
-          return // success — exit retry loop
+          return
         } catch (err) {
           lastErr = err
         }
@@ -218,7 +215,7 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
   }
 
   async function claimUtxo(_utxo: ClaimableUtxo): Promise<{ txSignature: string }> {
-    // Full claim requires an Umbra relayer endpoint + ZK proof generation.
+    // Full claim requires an Umbra relayer + ZK proof.
     // Wire in getReceiverBurnableStealthPoolNoteIntoETABurnerFunction once a devnet relayer is available.
     throw new Error('Claim requires Umbra relayer — not yet configured for devnet')
   }

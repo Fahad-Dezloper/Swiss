@@ -1,12 +1,10 @@
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaNeon } from '@prisma/adapter-neon'
 import { PrismaClient } from '@/app/generated/prisma/client'
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) throw new Error('Missing env: DATABASE_URL')
-  const pool = new Pool({ connectionString })
-  const adapter = new PrismaPg(pool)
+  const adapter = new PrismaNeon({ connectionString })
   return new PrismaClient({ adapter })
 }
 

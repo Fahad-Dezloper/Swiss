@@ -62,22 +62,17 @@ describe('useUmbraClient', () => {
     vi.clearAllMocks()
     localStorage.clear()
 
-    // Default mock: getUmbraClient resolves to a mock client
     mockGetUmbraClient.mockResolvedValue(makeMockClient())
 
-    // Default: user exists (registered)
     const mockQuerier = vi.fn().mockResolvedValue({ state: 'exists' })
     mockGetUserAccountQuerier.mockReturnValue(mockQuerier)
 
-    // Default: scanner returns empty
     const mockScanner = vi.fn().mockResolvedValue([])
     mockGetClaimableUtxoScanner.mockReturnValue(mockScanner)
 
-    // Default: registration fn
     const mockRegFn = vi.fn().mockResolvedValue(undefined)
     mockGetUserRegistrationFunction.mockReturnValue(mockRegFn)
 
-    // Default: zk prover mock
     mockGetUserRegistrationProver.mockReturnValue({})
   })
 
@@ -93,10 +88,8 @@ describe('useUmbraClient', () => {
 
     const { result } = renderHook(() => useUmbraClient(wallet))
 
-    // Immediately after render, status should be 'initializing'
     expect(result.current.status).toBe('initializing')
 
-    // After async resolution, status should be 'ready'
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
     })
@@ -104,12 +97,10 @@ describe('useUmbraClient', () => {
 
   it('isRegistered reads from localStorage cache on init', () => {
     const wallet = makeMockWallet('cached-wallet')
-    // Pre-seed localStorage
     localStorage.setItem('psr_umbra_registered_cached-wallet', '1')
 
     const { result } = renderHook(() => useUmbraClient(wallet))
 
-    // Should read from cache immediately (synchronous init state)
     expect(result.current.isRegistered).toBe(true)
   })
 
@@ -146,16 +137,13 @@ describe('useUmbraClient', () => {
 
   it('on init error: status=error, isRegistered stays at cached value', async () => {
     const wallet = makeMockWallet('error-wallet')
-    // Pre-seed localStorage: registered
     localStorage.setItem('psr_umbra_registered_error-wallet', '1')
 
     mockGetUmbraClient.mockRejectedValue(new Error('Network error'))
 
-    // Use fake timers to skip the 2s retry delay
     vi.useFakeTimers()
     const { result } = renderHook(() => useUmbraClient(wallet))
 
-    // Advance past the retry delay (2000ms) and flush all pending promises
     await act(async () => {
       await vi.runAllTimersAsync()
     })
@@ -163,13 +151,11 @@ describe('useUmbraClient', () => {
     vi.useRealTimers()
 
     expect(result.current.status).toBe('error')
-    // Should keep cached value (true) — registered users can still use the app
     expect(result.current.isRegistered).toBe(true)
     expect(result.current.error).toBe('Network error')
   })
 
   it('register() throws if client not initialized', async () => {
-    // wallet is null — client never gets initialized
     const { result } = renderHook(() => useUmbraClient(null))
 
     await expect(result.current.register()).rejects.toThrow('Umbra client not initialized')
@@ -177,7 +163,6 @@ describe('useUmbraClient', () => {
 
   it('register() calls getUserRegistrationFunction and sets isRegistered=true', async () => {
     const wallet = makeMockWallet('register-wallet')
-    // Start as unregistered
     const mockQuerier = vi.fn().mockResolvedValue(null)
     mockGetUserAccountQuerier.mockReturnValue(mockQuerier)
 
@@ -186,13 +171,11 @@ describe('useUmbraClient', () => {
 
     const { result } = renderHook(() => useUmbraClient(wallet))
 
-    // Wait for init to complete (status=ready, unregistered)
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
     })
     expect(result.current.isRegistered).toBe(false)
 
-    // Call register
     await act(async () => {
       await result.current.register()
     })
@@ -201,7 +184,6 @@ describe('useUmbraClient', () => {
     expect(mockRegisterFn).toHaveBeenCalled()
     expect(result.current.isRegistered).toBe(true)
     expect(result.current.status).toBe('ready')
-    // Should cache in localStorage
     expect(localStorage.getItem('psr_umbra_registered_register-wallet')).toBe('1')
   })
 })

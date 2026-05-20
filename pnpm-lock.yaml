@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@number-flow/react':
         specifier: ^0.6.0
         version: 0.6.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@prisma/adapter-neon':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@prisma/adapter-pg':
         specifier: ^7.8.0
         version: 7.8.0
@@ -60,11 +66,11 @@ importers:
         specifier: ^5.100.11
         version: 5.100.11(react@19.2.4)
       '@umbra-privacy/sdk':
-        specifier: 5.0.0-rc.0
-        version: 5.0.0-rc.0(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        specifier: 5.0.0-rc.1
+        version: 5.0.0-rc.1(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@umbra-privacy/web-zk-prover':
         specifier: ^2.0.1
-        version: 2.0.1(@umbra-privacy/sdk@5.0.0-rc.0(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6))(snarkjs@0.7.6)
+        version: 2.0.1(@umbra-privacy/sdk@5.0.0-rc.1(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6))(snarkjs@0.7.6)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -691,6 +697,10 @@ packages:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
 
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
+
   '@next/env@16.2.6':
     resolution: {integrity: sha512-gd8HoHN4ufj73WmR3JmVolrpJR47ILK6LouP5xElPglaVxir6e1a7VzvTvDWkOoPXT9rkkTzyCxBu4yeZfZwcw==}
 
@@ -820,6 +830,9 @@ packages:
 
   '@phosphor-icons/webcomponents@2.1.5':
     resolution: {integrity: sha512-JcvQkZxvcX2jK+QCclm8+e8HXqtdFW9xV4/kk2aL9Y3dJA2oQVt+pzbv1orkumz3rfx4K9mn9fDoMr1He1yr7Q==}
+
+  '@prisma/adapter-neon@7.8.0':
+    resolution: {integrity: sha512-9MoOjRuY53sQNyji87u1NivsK0tIacoUE3PqTxdG95b7ORn1pzwribH2z83j4Vh3eb9nQ/UC+MTfVW7jCFnXlA==}
 
   '@prisma/adapter-pg@7.8.0':
     resolution: {integrity: sha512-ygb3UkerK3v8MDpXVgCISdRNDozpxh6+JVJgiIGbSr5KBgz10LLf5ejUskPGoXlsIjxsOu6nuy1JVQr2EKGSlg==}
@@ -2597,8 +2610,8 @@ packages:
     resolution: {integrity: sha512-59UDBZsPD7RTHbr08TXnCWitHZZ8qOsvtYReSP6Ig3jVeY2mYdx1KBnKnpBlm8UQH8U1HFG1AzIgp2R0SCjtWQ==}
     engines: {node: '>=18.0.0'}
 
-  '@umbra-privacy/sdk@5.0.0-rc.0':
-    resolution: {integrity: sha512-ipV3AAFTnbwx4qc89zA8o8mBm6HO9ewz4q4l9xsPHhamoICC5II143mVbp38tCqYrb+uEuox4VYsIbfcQU+TnA==}
+  '@umbra-privacy/sdk@5.0.0-rc.1':
+    resolution: {integrity: sha512-lh4BaVf7tetJuXsKJ1N/kmDi6w0UTFHj1gWUDzaLkYD64CRFOeU8fCM9gw4imnRfcJj0mwM13f9owmE/8Kczsw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@wallet-standard/core': '>=1.0.0'
@@ -2609,8 +2622,8 @@ packages:
       snarkjs:
         optional: true
 
-  '@umbra-privacy/umbra-codama@2.0.2':
-    resolution: {integrity: sha512-ogGoHbxTQyvEdaPOyYTAx48XNQgvXcvkt5CdTKwPbRrcb3J6zhYEvrdyFBlOuI8GKjcpITi+5AiPnd41BikRHQ==}
+  '@umbra-privacy/umbra-codama@3.0.0-rc.0':
+    resolution: {integrity: sha512-M7EF07WLv5Z4Qv8JpzoG5DC3joHaFHIaDI2qtLHKolGeZ3YLhjIOI73UpMXprEAprtlmAXJkZoSn+UVSt575uQ==}
     engines: {node: '>=18.0.0'}
 
   '@umbra-privacy/web-zk-prover@2.0.1':
@@ -6009,6 +6022,8 @@ snapshots:
       '@tybys/wasm-util': 0.10.2
     optional: true
 
+  '@neondatabase/serverless@1.1.0': {}
+
   '@next/env@16.2.6': {}
 
   '@next/swc-darwin-arm64@16.2.6':
@@ -6093,6 +6108,12 @@ snapshots:
   '@phosphor-icons/webcomponents@2.1.5':
     dependencies:
       lit: 3.3.0
+
+  '@prisma/adapter-neon@7.8.0':
+    dependencies:
+      '@neondatabase/serverless': 1.1.0
+      '@prisma/driver-adapter-utils': 7.8.0
+      postgres-array: 3.0.4
 
   '@prisma/adapter-pg@7.8.0':
     dependencies:
@@ -8580,7 +8601,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@umbra-privacy/sdk@5.0.0-rc.0(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@umbra-privacy/sdk@5.0.0-rc.1(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
       '@bufbuild/protobuf': 2.12.0
       '@noble/ciphers': 2.2.0
@@ -8589,7 +8610,7 @@ snapshots:
       '@solana/kit': 6.9.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
       '@solana/wallet-standard-features': 1.3.0
       '@umbra-privacy/arcium-codama': 2.0.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
-      '@umbra-privacy/umbra-codama': 2.0.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@umbra-privacy/umbra-codama': 3.0.0-rc.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
     optionalDependencies:
       snarkjs: 0.7.6
     transitivePeerDependencies:
@@ -8598,7 +8619,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@umbra-privacy/umbra-codama@2.0.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@umbra-privacy/umbra-codama@3.0.0-rc.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
       '@solana-program/system': 0.11.0(@solana/kit@6.9.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))
       '@solana-program/token-2022': 0.9.0(@solana/kit@6.9.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/sysvars@6.9.0(typescript@5.9.3))
@@ -8610,9 +8631,9 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@umbra-privacy/web-zk-prover@2.0.1(@umbra-privacy/sdk@5.0.0-rc.0(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6))(snarkjs@0.7.6)':
+  '@umbra-privacy/web-zk-prover@2.0.1(@umbra-privacy/sdk@5.0.0-rc.1(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6))(snarkjs@0.7.6)':
     dependencies:
-      '@umbra-privacy/sdk': 5.0.0-rc.0(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      '@umbra-privacy/sdk': 5.0.0-rc.1(bufferutil@4.1.0)(snarkjs@0.7.6)(typescript@5.9.3)(utf-8-validate@6.0.6)
       snarkjs: 0.7.6
 
   '@vitest/coverage-v8@4.1.7(vitest@4.1.7)':
