@@ -6,9 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@number-flow/react": "^0.6.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@privy-io/react-auth": "^3.26.1",
@@ -25,7 +29,7 @@
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.100.11",
-    "@umbra-privacy/sdk": "^4.0.0",
+    "@umbra-privacy/sdk": "5.0.0-rc.0",
     "@umbra-privacy/web-zk-prover": "^2.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -33,10 +37,12 @@
     "framer-motion": "^12.39.0",
     "ioredis": "^5.10.1",
     "lucide-react": "^1.16.0",
+    "motion": "^12.39.0",
     "next": "16.2.6",
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-use-measure": "^2.1.7",
     "snarkjs": "^0.7.6",
     "tailwind-merge": "^3.6.0",
     "tweetnacl": "^1.0.3",
@@ -45,11 +51,18 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.7"
   }
 }

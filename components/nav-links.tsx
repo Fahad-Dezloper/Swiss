@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Inbox, BookUser } from "lucide-react";
+import { Send, Download, Receipt } from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/payroll", label: "Payroll", icon: Users },
-  { href: "/received", label: "Received", icon: Inbox },
+  { href: "/pay", label: "Pay", icon: Send },
+  { href: "/claim", label: "Claim", icon: Download },
+  { href: "/receipts", label: "Receipts", icon: Receipt },
 ];
 
 export default function NavLinks() {

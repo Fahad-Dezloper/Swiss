@@ -34,8 +34,8 @@ export async function POST(request: Request) {
       return Response.json({ error: 'amount must be a valid integer string' }, { status: 400 })
     }
 
-    // Get or create default user (needed for Payment.senderUserId FK)
-    const senderUser = (await db.user.findFirst()) ??
+    // Get or create user for senderWallet (needed for Payment.senderUserId FK)
+    const senderUser = (await db.user.findFirst({ where: { walletAddress: senderWallet } })) ??
       (await db.user.create({ data: { walletAddress: senderWallet } }))
     const senderUserId = senderUser.id
 
