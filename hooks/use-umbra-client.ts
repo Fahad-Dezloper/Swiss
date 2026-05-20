@@ -133,8 +133,7 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
     if (!client) throw new Error('Umbra client not initialized')
     setStatus('registering')
     try {
-      const assetProvider = getCdnZkAssetProvider()
-      const zkProver = getUserRegistrationProver({ assetProvider })
+      const zkProver = getUserRegistrationProver()
       const doRegister = getUserRegistrationFunction({ client }, { zkProver })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (doRegister as any)({ confidential: true, anonymous: true })
@@ -171,8 +170,7 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
     if (!isRegistered) throw new Error('Register with Umbra first')
 
     onStep?.('Preparing ZK prover…')
-    const assetProvider = getCdnZkAssetProvider()
-    const zkProver = getATAIntoStealthPoolNoteCreatorProver({ assetProvider })
+    const zkProver = getATAIntoStealthPoolNoteCreatorProver()
 
     const createNote = getATAIntoReceiverBurnableStealthPoolNoteCreatorFunction(
       { client },

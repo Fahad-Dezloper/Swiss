@@ -4,7 +4,6 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 // Mock all Umbra SDK modules (v5 subpath structure)
 vi.mock('@umbra-privacy/sdk', () => ({
   getUmbraClient: vi.fn(),
-  getCdnZkAssetProvider: vi.fn(),
   getATAIntoStealthPoolNoteCreatorProver: vi.fn(),
   getUserRegistrationProver: vi.fn(),
 }))
@@ -34,7 +33,7 @@ vi.mock('@/lib/umbra/signer-adapter', () => ({
   })),
 }))
 
-import { getUmbraClient, getCdnZkAssetProvider, getUserRegistrationProver } from '@umbra-privacy/sdk'
+import { getUmbraClient, getUserRegistrationProver } from '@umbra-privacy/sdk'
 import { getUserRegistrationFunction } from '@umbra-privacy/sdk/registration'
 import { getUserAccountQuerierFunction } from '@umbra-privacy/sdk/query'
 import { getBurnableStealthPoolNoteScannerFunction } from '@umbra-privacy/sdk/burn'
@@ -44,7 +43,6 @@ const mockGetUmbraClient = getUmbraClient as ReturnType<typeof vi.fn>
 const mockGetUserAccountQuerier = getUserAccountQuerierFunction as ReturnType<typeof vi.fn>
 const mockGetUserRegistrationFunction = getUserRegistrationFunction as ReturnType<typeof vi.fn>
 const mockGetClaimableUtxoScanner = getBurnableStealthPoolNoteScannerFunction as ReturnType<typeof vi.fn>
-const mockGetCdnZkAssetProvider = getCdnZkAssetProvider as ReturnType<typeof vi.fn>
 const mockGetUserRegistrationProver = getUserRegistrationProver as ReturnType<typeof vi.fn>
 
 function makeMockWallet(address: string = 'test-wallet-addr') {
@@ -79,8 +77,7 @@ describe('useUmbraClient', () => {
     const mockRegFn = vi.fn().mockResolvedValue(undefined)
     mockGetUserRegistrationFunction.mockReturnValue(mockRegFn)
 
-    // Default: zk prover mocks
-    mockGetCdnZkAssetProvider.mockReturnValue({})
+    // Default: zk prover mock
     mockGetUserRegistrationProver.mockReturnValue({})
   })
 
