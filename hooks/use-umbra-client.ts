@@ -6,6 +6,7 @@ import {
   getUserRegistrationFunction,
   getPublicBalanceToReceiverClaimableUtxoCreatorFunction,
   getUserAccountQuerierFunction,
+  getClaimableUtxoScannerFunction,
 } from '@umbra-privacy/sdk'
 import {
   getCreateReceiverClaimableUtxoFromPublicBalanceProver,
@@ -21,6 +22,16 @@ const USDC_MINT = (process.env.NEXT_PUBLIC_UMBRA_USDC_MINT || '4zMMC9srt5Ri5X14G
 
 export type UmbraStatus = 'idle' | 'initializing' | 'registering' | 'ready' | 'error'
 
+export interface ClaimableUtxo {
+  id: string
+  amount: bigint
+  mint: string
+  treeIndex: number
+  insertionIndex: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _raw: any
+}
+
 export interface UmbraClientHook {
   status: UmbraStatus
   error: string | null
@@ -32,6 +43,8 @@ export interface UmbraClientHook {
     amount: bigint
     onStep?(step: string): void
   }): Promise<{ txSignature: string }>
+  scanUtxos(): Promise<ClaimableUtxo[]>
+  claimUtxo(utxo: ClaimableUtxo): Promise<{ txSignature: string }>  // requires relayer — stub for now
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +82,6 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
         if (cancelled) return
         clientRef.current = client
 
-        // Check if already registered
         const query = getUserAccountQuerierFunction({ client })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const account = await (query as any)(wallet.address).catch(() => null)
@@ -145,9 +157,36 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
       mint: USDC_MINT,
     })
 
-    const txSignature: string = Array.isArray(result) ? result[0] : result
+    const txSignature: string = Array.isArray(result) ? result[0] : result?.txSignature ?? result
     return { txSignature }
   }
 
-  return { status, error, isRegistered, register, checkRecipientRegistered, sendUsdc }
+  async function scanUtxos(): Promise<ClaimableUtxo[]> {
+    const client = clientRef.current
+    if (!client) throw new Error('Umbra client not initialized')
+    if (!isRegistered) throw new Error('Register with Umbra first')
+
+    const scan = getClaimableUtxoScannerFunction({ client })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results: any[] = await (scan as any)()
+
+    return results.map((r, i) => ({
+      id: `utxo-${i}`,
+      amount: r.amount ?? r.decryptedData?.amount ?? BigInt(0),
+      mint: r.mint ?? USDC_MINT,
+      treeIndex: r.treeIndex ?? 0,
+      insertionIndex: r.insertionIndex ?? i,
+      _raw: r,
+    }))
+  }
+
+  async function claimUtxo(_utxo: ClaimableUtxo): Promise<{ txSignature: string }> {
+    // Full claim requires an Umbra relayer endpoint + ZK proof generation.
+    // The relayer URL (`UMBRA_RELAYER_API`) is not yet configured for devnet.
+    // Once Umbra provides a devnet relayer URL, wire in:
+    //   getReceiverClaimableUtxoToEncryptedBalanceClaimerFunction({ client }, { relayer, fetchBatchMerkleProof, zkProver })
+    throw new Error('Claim requires Umbra relayer — not yet configured for devnet')
+  }
+
+  return { status, error, isRegistered, register, checkRecipientRegistered, sendUsdc, scanUtxos, claimUtxo }
 }

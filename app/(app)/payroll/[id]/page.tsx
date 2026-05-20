@@ -45,8 +45,8 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
   const [notFound, setNotFound] = useState(false)
   const [completing, setCompleting] = useState(false)
 
-  // Rail selection
-  const [rail, setRail] = useState<'sol' | 'umbra'>('sol')
+  // Rail selection — default Umbra
+  const [rail, setRail] = useState<'sol' | 'umbra'>('umbra')
 
   // Contacts for address picker
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -459,7 +459,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
                     : recipientRegistered === true
                     ? <span className="text-white">✓ Recipient registered on Umbra</span>
                     : recipientRegistered === false
-                    ? <span className="text-[#888]">✗ Recipient not registered on Umbra — cannot send privately</span>
+                    ? <span className="text-[#555]">Recipient not yet on PSR — they'll claim once they join and register on Umbra</span>
                     : null}
                 </p>
               )}
@@ -497,7 +497,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
               type="submit"
               disabled={
                 sending || !recipientAddr.trim() || !amount.trim() || !connectedWallet ||
-                (rail === 'umbra' && (!umbra.isRegistered || recipientRegistered === false))
+                (rail === 'umbra' && !umbra.isRegistered)
               }
               className="px-4 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >

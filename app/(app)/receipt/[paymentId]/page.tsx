@@ -150,8 +150,8 @@ export default function ReceiptPage() {
     return (
       <div className="text-center py-24 space-y-3">
         <p className="text-sm text-[#888]">Receipt not found.</p>
-        <Link href="/dashboard" className="text-xs text-white underline">
-          Back to Dashboard
+        <Link href="/receipts" className="text-xs text-white underline">
+          Back to Receipts
         </Link>
       </div>
     )
@@ -161,8 +161,8 @@ export default function ReceiptPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="text-[#888] hover:text-white text-sm">
-          ← Dashboard
+        <Link href="/receipts" className="text-[#888] hover:text-white text-sm">
+          ← Receipts
         </Link>
         <span className="text-[#444]">/</span>
         <h1 className="text-xl font-semibold text-white">Receipt</h1>
