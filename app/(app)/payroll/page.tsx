@@ -33,7 +33,7 @@ export default function PayrollPage() {
         <h1 className="text-xl font-semibold text-white">Payroll</h1>
         <Link
           href="/payroll/new"
-          className="px-3 py-2 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none"
+          className="px-3 py-2 rounded-lg bg-[#43AED6] text-white text-sm font-medium hover:bg-[#3a9dc3] focus:outline-none"
         >
           New Run
         </Link>

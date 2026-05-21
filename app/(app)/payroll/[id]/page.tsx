@@ -270,7 +270,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
             <button
               onClick={handleComplete}
               disabled={completing || run.payments.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-[#e0e0e0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#43AED6] text-white text-xs font-medium hover:bg-[#3a9dc3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <CheckCircle className="h-3.5 w-3.5" />
               {completing ? 'Completing…' : 'Mark Complete'}
@@ -375,7 +375,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
             <button
               type="button"
               onClick={() => setRail('sol')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'sol' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'sol' ? 'bg-[#43AED6] text-white' : 'text-[#888] hover:text-white'}`}
             >
               <Zap className="h-3 w-3" />
               SOL Direct
@@ -383,7 +383,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
             <button
               type="button"
               onClick={() => setRail('umbra')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'umbra' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${rail === 'umbra' ? 'bg-[#43AED6] text-white' : 'text-[#888] hover:text-white'}`}
             >
               <ShieldCheck className="h-3 w-3" />
               Umbra Private
@@ -499,7 +499,7 @@ export default function PayrollRunPage({ params }: { params: Promise<{ id: strin
                 sending || !recipientAddr.trim() || !amount.trim() || !connectedWallet ||
                 (rail === 'umbra' && !umbra.isRegistered)
               }
-              className="px-4 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 rounded-lg bg-[#43AED6] text-white text-sm font-medium hover:bg-[#3a9dc3] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {sendStep !== 'idle'
                 ? sendStep

@@ -7,6 +7,8 @@ import { useWallets } from '@privy-io/react-auth/solana'
 import { LockKeyhole, Unlock, Shield, Copy, Check, AlertTriangle, ExternalLink } from 'lucide-react'
 import { truncateAddress, formatDate } from '@/lib/utils'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { toast } from 'sonner'
+import { useSuccessSound } from '@/hooks/use-success-sound'
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -67,6 +69,7 @@ export default function ReceiptPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
+  const playSuccess = useSuccessSound()
   const [viewData, setViewData] = useState<ViewData | null>(null)
   const [signing, setSigning] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
@@ -118,6 +121,10 @@ export default function ReceiptPage() {
 
       const data: ViewData = await res.json()
       setViewData(data)
+      playSuccess()
+      toast.success('Receipt verified', {
+        description: 'Wallet ownership confirmed — full details unlocked.',
+      })
     } catch (err) {
       setSignError(err instanceof Error ? err.message : 'Verification failed')
     } finally {
@@ -284,7 +291,7 @@ export default function ReceiptPage() {
           <button
             onClick={handleSignToView}
             disabled={signing || !isAuthorized}
-            className="w-full px-4 py-3 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-4 py-3 rounded-lg bg-[#43AED6] text-white text-sm font-medium hover:bg-[#3a9dc3] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {signing ? 'Approve in wallet…' : 'Sign & View Details'}
           </button>

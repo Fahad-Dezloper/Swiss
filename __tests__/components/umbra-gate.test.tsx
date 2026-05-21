@@ -30,6 +30,7 @@ function defaultUmbraState(overrides: Partial<ReturnType<typeof useUmbraClient>>
   return {
     status: 'idle' as const,
     error: null,
+    errorKind: null as 'init' | 'registration' | null,
     isRegistered: false,
     register: vi.fn(),
     checkRecipientRegistered: vi.fn(),
@@ -107,7 +108,7 @@ describe('UmbraGate component', () => {
   it('renders children when isRegistered=true even if status=error', () => {
     mockUseWallets.mockReturnValue({ wallets: [{ address: 'wallet-addr' }] })
     mockUseUmbraClient.mockReturnValue(
-      defaultUmbraState({ status: 'error', isRegistered: true, error: 'Some error' })
+      defaultUmbraState({ status: 'error', isRegistered: true, error: 'Some error', errorKind: 'init' })
     )
 
     render(
@@ -173,10 +174,10 @@ describe('UmbraGate component', () => {
     })
   })
 
-  it('shows dismissible warning banner on error (children still render)', () => {
+  it('shows dismissible warning banner on init error (children still render)', () => {
     mockUseWallets.mockReturnValue({ wallets: [{ address: 'wallet-addr' }] })
     mockUseUmbraClient.mockReturnValue(
-      defaultUmbraState({ status: 'error', isRegistered: false, error: 'Connection refused' })
+      defaultUmbraState({ status: 'error', isRegistered: false, error: 'Connection refused', errorKind: 'init' })
     )
 
     render(
@@ -185,30 +186,35 @@ describe('UmbraGate component', () => {
       </UmbraGate>
     )
 
-    // Children ARE rendered (error is a banner, not a blocker)
+    // Children ARE rendered (init error is a banner, not a blocker)
     expect(screen.getByTestId('child')).toBeInTheDocument()
-    expect(screen.getByText(/umbra init failed/i)).toBeInTheDocument()
+    expect(screen.getByText(/umbra connection failed/i)).toBeInTheDocument()
   })
 
-  it('error banner shows the umbra.error message', () => {
+  it('registration error shows retry button, not the banner', () => {
     mockUseWallets.mockReturnValue({ wallets: [{ address: 'wallet-addr' }] })
     mockUseUmbraClient.mockReturnValue(
-      defaultUmbraState({ status: 'error', isRegistered: false, error: 'ECONNREFUSED: port 8080' })
+      defaultUmbraState({ status: 'ready', isRegistered: false, error: 'Registration failed — transaction simulation error.', errorKind: 'registration' })
     )
 
     render(
       <UmbraGate>
-        <div>Content</div>
+        <div data-testid="child">Content</div>
       </UmbraGate>
     )
 
-    expect(screen.getByText(/ECONNREFUSED: port 8080/)).toBeInTheDocument()
+    // Children NOT rendered — registration screen blocks
+    expect(screen.queryByTestId('child')).not.toBeInTheDocument()
+    // Shows retry button
+    expect(screen.getByRole('button', { name: /retry registration/i })).toBeInTheDocument()
+    // Shows the error message inline
+    expect(screen.getByText(/transaction simulation error/i)).toBeInTheDocument()
   })
 
-  it('error banner can be dismissed', () => {
+  it('init error banner can be dismissed', () => {
     mockUseWallets.mockReturnValue({ wallets: [{ address: 'wallet-addr' }] })
     mockUseUmbraClient.mockReturnValue(
-      defaultUmbraState({ status: 'error', isRegistered: false, error: 'Some error' })
+      defaultUmbraState({ status: 'error', isRegistered: false, error: 'Some error', errorKind: 'init' })
     )
 
     render(
@@ -218,14 +224,14 @@ describe('UmbraGate component', () => {
     )
 
     // Banner initially visible
-    expect(screen.getByText(/umbra init failed/i)).toBeInTheDocument()
+    expect(screen.getByText(/umbra connection failed/i)).toBeInTheDocument()
 
     // Click dismiss (X button)
     const dismissBtn = screen.getByRole('button', { name: /dismiss/i })
     fireEvent.click(dismissBtn)
 
     // Banner gone, children still there
-    expect(screen.queryByText(/umbra init failed/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/umbra connection failed/i)).not.toBeInTheDocument()
     expect(screen.getByText('Content')).toBeInTheDocument()
   })
 })

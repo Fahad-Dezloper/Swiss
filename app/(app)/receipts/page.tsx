@@ -1,186 +1,266 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useWallets } from '@privy-io/react-auth/solana'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { truncateAddress, truncateHash, formatDate } from '@/lib/utils'
-import { Copy, Check } from 'lucide-react'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useWallets } from "@privy-io/react-auth/solana";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { truncateAddress, truncateHash, formatDate } from "@/lib/utils";
+import { Copy, Check, ArrowRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useSuccessSound } from "@/hooks/use-success-sound";
 
-type Tab = 'paid' | 'received'
+type Tab = "paid" | "received";
 
 interface ReceiptRow {
-  id: string
-  paymentId: string
-  receiptHash: string
-  senderWallet: string
-  recipientWallet: string
-  createdAt: string
+  id: string;
+  paymentId: string;
+  receiptHash: string;
+  senderWallet: string;
+  recipientWallet: string;
+  createdAt: string;
   payment: {
-    id: string
-    amount: string
-    currency: string
-    status: string
-    txSignature: string | null
-    recipientAddr: string
-    rail: string
-    createdAt: string
-    payrollRun: { periodLabel: string } | null
-  } | null
+    id: string;
+    amount: string;
+    currency: string;
+    status: string;
+    txSignature: string | null;
+    recipientAddr: string;
+    rail: string;
+    createdAt: string;
+    payrollRun: { periodLabel: string } | null;
+  } | null;
 }
 
 function formatAmount(amount: string, currency: string): string {
-  if (currency === 'SOL') return (Number(amount) / LAMPORTS_PER_SOL).toFixed(4) + ' SOL'
-  return (Number(amount) / 1_000_000).toFixed(2) + ' ' + currency
+  if (currency === "SOL")
+    return (Number(amount) / LAMPORTS_PER_SOL).toFixed(4) + " SOL";
+  return (Number(amount) / 1_000_000).toFixed(2) + " " + currency;
 }
 
 export default function ReceiptsPage() {
-  const { wallets } = useWallets()
-  const wallet = wallets[0] ?? null
-  const address = wallet?.address ?? null
+  const router = useRouter();
+  const { wallets } = useWallets();
+  const wallet = wallets[0] ?? null;
+  const address = wallet?.address ?? null;
+  const playSuccess = useSuccessSound();
 
-  const [tab, setTab] = useState<Tab>('paid')
-  const [receipts, setReceipts] = useState<ReceiptRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>("paid");
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [signing, setSigning] = useState<string | null>(null);
 
   async function fetchReceipts(currentTab: Tab, walletAddr: string) {
-    setLoading(true)
+    setLoading(true);
     try {
       const res = await fetch(
-        `/api/receipts?walletAddress=${encodeURIComponent(walletAddr)}&tab=${currentTab}`
-      )
-      const data = await res.json()
-      setReceipts(Array.isArray(data) ? data : [])
+        `/api/receipts?walletAddress=${encodeURIComponent(walletAddr)}&tab=${currentTab}`,
+      );
+      const data = await res.json();
+      setReceipts(Array.isArray(data) ? data : []);
     } catch {
-      setReceipts([])
+      setReceipts([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (address) fetchReceipts(tab, address)
-    else setReceipts([])
+    if (address) fetchReceipts(tab, address);
+    else setReceipts([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, address])
+  }, [tab, address]);
 
   function copyToClipboard(text: string, key: string) {
-    navigator.clipboard.writeText(text)
-    setCopied(key)
-    setTimeout(() => setCopied(null), 2000)
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function signAndView(paymentId: string, receiptHash: string) {
+    if (!wallet) return;
+    setSigning(paymentId);
+    try {
+      const msg = `PSR:view-receipt:${receiptHash}:${Date.now()}`;
+      const msgBytes = new TextEncoder().encode(msg);
+      await wallet.signMessage({ message: msgBytes });
+      playSuccess();
+      toast.success("Verified — opening receipt…");
+      router.push(`/receipt/${paymentId}`);
+    } catch {
+      // user rejected — stay on page
+    } finally {
+      setSigning(null);
+    }
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 bg-[#ffffff] p-6 rounded-3xl text-[#000000]">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-white">Receipts</h1>
-        <p className="mt-1 text-sm text-[#888]">
-          Cryptographic payment receipts for{' '}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-[#000000]">
+          Receipts
+        </h1>
+        <p className="text-sm text-[#737373]">
+          Cryptographic payment receipts for{" "}
           {address ? (
-            <span className="font-mono text-white">{truncateAddress(address)}</span>
-          ) : 'your wallet'}
+            <span className="font-mono font-medium text-[#000000] bg-[#f5f5f5] px-1.5 py-0.5 rounded border border-[#e5e5e5]">
+              {truncateAddress(address)}
+            </span>
+          ) : (
+            "your wallet"
+          )}
         </p>
       </div>
 
       {/* Tab toggle */}
-      <div className="flex items-center gap-1 p-1 rounded-lg bg-black border border-[#222] w-fit">
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-[#f5f5f5] border border-[#e5e5e5] w-fit">
         <button
-          onClick={() => setTab('paid')}
-          className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === 'paid' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+          onClick={() => setTab("paid")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            tab === "paid"
+              ? "bg-[#ffffff] text-[#000000] shadow-sm border border-[#e5e5e5]/50 font-bold"
+              : "text-[#737373] hover:text-[#000000]"
+          }`}
         >
           Paid
         </button>
         <button
-          onClick={() => setTab('received')}
-          className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === 'received' ? 'bg-white text-black' : 'text-[#888] hover:text-white'}`}
+          onClick={() => setTab("received")}
+          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            tab === "received"
+              ? "bg-[#ffffff] text-[#000000] shadow-sm border border-[#e5e5e5]/50 font-bold"
+              : "text-[#737373] hover:text-[#000000]"
+          }`}
         >
           Received
         </button>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#222] bg-[#111] overflow-hidden">
+      <div className="rounded-2xl border border-[#e5e5e5] bg-[#ffffff] overflow-hidden shadow-sm">
         {!address ? (
-          <div className="px-6 py-10 text-center text-sm text-[#555]">
+          <div className="px-6 py-12 text-center text-sm text-[#737373] bg-[#f9f9f9]">
             Connect your wallet to view receipts.
           </div>
         ) : loading ? (
-          <div className="px-6 py-10 text-center text-sm text-[#888]">Loading…</div>
+          <div className="px-6 py-12 text-center text-sm text-[#737373] bg-[#f9f9f9] animate-pulse">
+            Loading receipts…
+          </div>
         ) : receipts.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm text-[#555]">
-            No {tab === 'paid' ? 'paid' : 'received'} receipts yet.
+          <div className="px-6 py-12 text-center text-sm text-[#737373] bg-[#f9f9f9]">
+            No {tab === "paid" ? "paid" : "received"} receipts yet.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#222]">
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#888] uppercase tracking-wider">
-                  {tab === 'paid' ? 'Recipient' : 'Sender'}
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#888] uppercase tracking-wider">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#888] uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#888] uppercase tracking-wider">Receipt Hash</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#888] uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#222]">
-              {receipts.map((r) => {
-                const counterparty = tab === 'paid'
-                  ? (r.payment?.recipientAddr ?? r.recipientWallet)
-                  : r.senderWallet
-                const hashKey = `hash-${r.id}`
-                const addrKey = `addr-${r.id}`
-                return (
-                  <tr key={r.id} className="hover:bg-black transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-white font-mono">
-                          {truncateAddress(counterparty)}
-                        </span>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-[#e5e5e5] bg-[#f9f9f9]">
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-[#737373] uppercase tracking-wider">
+                    {tab === "paid" ? "Recipient" : "Sender"}
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-[#737373] uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-[#737373] uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-[#737373] uppercase tracking-wider">
+                    Receipt Hash
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-[#737373] uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e5e5e5]">
+                {receipts.map((r) => {
+                  const counterparty =
+                    tab === "paid"
+                      ? (r.payment?.recipientAddr ?? r.recipientWallet)
+                      : r.senderWallet;
+                  const hashKey = `hash-${r.id}`;
+                  const addrKey = `addr-${r.id}`;
+                  return (
+                    <tr
+                      key={r.id}
+                      className="hover:bg-[#f9f9f9] transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-[#000000] font-mono font-medium">
+                            {truncateAddress(counterparty)}
+                          </span>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(counterparty, addrKey)
+                            }
+                            className="text-[#a3a3a3] hover:text-[#000000] transition-colors cursor-pointer bg-transparent border-none"
+                          >
+                            {copied === addrKey ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-[#000000] font-semibold font-mono">
+                        {r.payment
+                          ? formatAmount(r.payment.amount, r.payment.currency)
+                          : "—"}
+                      </td>
+                      <td className="px-5 py-4 text-xs text-[#737373]">
+                        {formatDate(r.createdAt)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-xs text-[#737373] font-mono"
+                            title={r.receiptHash}
+                          >
+                            {truncateHash(r.receiptHash, 6)}
+                          </span>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(r.receiptHash, hashKey)
+                            }
+                            className="text-[#a3a3a3] hover:text-[#000000] transition-colors cursor-pointer bg-transparent border-none"
+                          >
+                            {copied === hashKey ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
                         <button
-                          onClick={() => copyToClipboard(counterparty, addrKey)}
-                          className="text-[#555] hover:text-white transition-colors"
+                          onClick={() =>
+                            signAndView(r.paymentId, r.receiptHash)
+                          }
+                          disabled={signing === r.paymentId}
+                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-[#43AED6] hover:bg-[#3a9dc3] text-xs font-semibold text-white transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] border border-[#43AED6] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                         >
-                          {copied === addrKey ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {signing === r.paymentId ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <span className="!text-white">Sign to view</span>
+                              <ArrowRight className="h-3 w-3 !text-white" />
+                            </>
+                          )}
                         </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-white font-mono">
-                      {r.payment ? formatAmount(r.payment.amount, r.payment.currency) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-[#888]">
-                      {formatDate(r.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-[#888] font-mono" title={r.receiptHash}>
-                          {truncateHash(r.receiptHash, 6)}
-                        </span>
-                        <button
-                          onClick={() => copyToClipboard(r.receiptHash, hashKey)}
-                          className="text-[#555] hover:text-white transition-colors"
-                        >
-                          {copied === hashKey ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/receipt/${r.paymentId}`}
-                        className="text-xs text-[#888] hover:text-white underline font-mono"
-                      >
-                        Sign to view →
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
-  )
+  );
 }

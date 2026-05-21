@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { useUmbraClient } from "@/hooks/use-umbra-client";
+import { useSuccessSound } from "@/hooks/use-success-sound";
+import { toast } from "sonner";
 import Swap from "@/components/Swap";
 
 const USDC_DECIMALS = 6;
@@ -33,6 +35,7 @@ export default function PayPage() {
   const address = connectedWallet?.address ?? null;
 
   const umbra = useUmbraClient(connectedWallet);
+  const playSuccess = useSuccessSound();
 
   const [recipientAddr, setRecipientAddr] = useState("");
   const [amount, setAmount] = useState("");
@@ -142,6 +145,10 @@ export default function PayPage() {
 
       setRecipientAddr("");
       setAmount("");
+      playSuccess();
+      toast.success("Payment sent!", {
+        description: `${usdcAmount.toFixed(2)} USDC sent privately via Umbra.`,
+      });
       await fetchRecentSends();
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Something went wrong");

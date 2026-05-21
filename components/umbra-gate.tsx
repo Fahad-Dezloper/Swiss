@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useWallets } from '@privy-io/react-auth/solana'
-import { ShieldCheck, X } from 'lucide-react'
+import { ShieldCheck, RefreshCw, X } from 'lucide-react'
 import { useUmbraClient } from '@/hooks/use-umbra-client'
 
 export default function UmbraGate({ children }: { children: React.ReactNode }) {
@@ -41,18 +41,21 @@ export default function UmbraGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // SDK error — pass through but show a dismissible warning banner
-  // Don't hard-block: the error is often transient (devnet RPC rate limits, simulation timeouts)
-  // and blocking prevents the user from even attempting to use the app
-  if (umbra.status === 'error') {
+  // Init error (SDK/network failed) — pass through with dismissible banner
+  if (umbra.status === 'error' && umbra.errorKind === 'init') {
     return (
       <>
         {!errorDismissed && (
           <div className="flex items-start justify-between gap-3 px-4 py-3 bg-[#111] border-b border-[#222] text-xs text-[#888]">
             <span>
-              <span className="text-white font-medium">Umbra init failed</span>
-              {umbra.error ? ` — ${umbra.error}` : ' — could not connect to Umbra network.'}
-              {' '}Sending and scanning may not work. Try refreshing.
+              <span className="text-white font-medium">Umbra connection failed</span>
+              {' — '}could not reach the Umbra network. Sending and claiming may not work.{' '}
+              <button
+                onClick={() => window.location.reload()}
+                className="underline text-[#aaa] hover:text-white"
+              >
+                Refresh to retry.
+              </button>
             </span>
             <button
               onClick={() => setErrorDismissed(true)}
@@ -68,7 +71,7 @@ export default function UmbraGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Ready but not registered — force onboarding before proceeding
+  // Ready (or registration error — button stays enabled to retry) — show onboarding screen
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="max-w-sm w-full space-y-6 text-center">
@@ -79,7 +82,7 @@ export default function UmbraGate({ children }: { children: React.ReactNode }) {
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-white">Set up private payments</h2>
           <p className="text-sm text-[#888] leading-relaxed">
-            PSR routes payroll through Umbra's stealth pool. Register once —
+            Swiss routes payroll through Umbra's stealth pool. Register once —
             this stores your public keys on-chain so senders can create stealth UTXOs only you can claim.
           </p>
         </div>
@@ -87,7 +90,7 @@ export default function UmbraGate({ children }: { children: React.ReactNode }) {
         <div className="rounded-xl border border-[#222] bg-[#111] p-4 space-y-2 text-left">
           {[
             'One-time ZK proof + on-chain tx — stores your public keys',
-            'Required to send and receive on PSR',
+            'Required to send and receive on Swiss',
             'Senders route privately; only you can scan & claim',
           ].map((item) => (
             <div key={item} className="flex items-start gap-2">
@@ -97,19 +100,25 @@ export default function UmbraGate({ children }: { children: React.ReactNode }) {
           ))}
         </div>
 
+        {umbra.error && umbra.errorKind === 'registration' && (
+          <div className="rounded-lg border border-[#2a1a1a] bg-[#1a0e0e] px-4 py-3 text-left">
+            <p className="text-xs text-[#cc6666] leading-relaxed">{umbra.error}</p>
+          </div>
+        )}
+
         <button
           onClick={async () => {
-            try { await umbra.register() } catch { /* error shown via umbra.error */ }
+            try { await umbra.register() } catch { /* error shown above */ }
           }}
-          disabled={umbra.status !== 'ready'}
-          className="w-full px-4 py-3 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          disabled={(umbra.status as any) === 'registering'}
+          className="w-full px-4 py-3 rounded-lg bg-[#43AED6] text-white text-sm font-medium hover:bg-[#3a9dc3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
-          Register with Umbra →
+          {umbra.errorKind === 'registration' ? (
+            <><RefreshCw className="h-4 w-4" /> Retry Registration</>
+          ) : (
+            'Register with Umbra →'
+          )}
         </button>
-
-        {umbra.error && (
-          <p className="text-xs text-[#888]">{umbra.error}</p>
-        )}
       </div>
     </div>
   )

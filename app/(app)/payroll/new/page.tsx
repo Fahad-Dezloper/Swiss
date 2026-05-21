@@ -81,7 +81,7 @@ export default function NewPayrollPage() {
         <button
           type="submit"
           disabled={submitting || !periodLabel.trim()}
-          className="w-full px-4 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-[#e0e0e0] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full px-4 py-2.5 rounded-lg bg-[#43AED6] text-white text-sm font-medium hover:bg-[#3a9dc3] focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {submitting ? 'Creating…' : 'Create Payroll Run'}
         </button>

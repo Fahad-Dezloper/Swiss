@@ -140,7 +140,7 @@ export default function ReceivedPage() {
                     <button
                       onClick={() => claimUtxo(utxo)}
                       disabled={claiming === key}
-                      className="px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-[#e0e0e0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 py-1.5 rounded-lg bg-[#43AED6] text-white text-xs font-medium hover:bg-[#3a9dc3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       {claiming === key ? 'Claiming…' : 'Claim →'}
                     </button>

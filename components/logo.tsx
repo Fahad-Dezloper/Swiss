@@ -9,7 +9,7 @@ export default function Logo() {
       </div>
       <div>
         <p className="text-white font-semibold tracking-tight text-sm leading-none">
-          PSR
+          Swiss
         </p>
         <p className="text-[#555] text-[10px] leading-none mt-0.5">
           Private Payroll

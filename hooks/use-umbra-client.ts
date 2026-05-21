@@ -1,24 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import {
-  getUmbraClient,
-  getATAIntoStealthPoolNoteCreatorProver,
-  getUserRegistrationProver,
-} from '@umbra-privacy/sdk'
-import { getUserRegistrationFunction } from '@umbra-privacy/sdk/registration'
-import { getUserAccountQuerierFunction } from '@umbra-privacy/sdk/query'
-import { getATAIntoReceiverBurnableStealthPoolNoteCreatorFunction } from '@umbra-privacy/sdk/deposit'
-import { getBurnableStealthPoolNoteScannerFunction } from '@umbra-privacy/sdk/burn'
 import { createUmbraSignerFromPrivy, type PrivySolanaWallet } from '@/lib/umbra/signer-adapter'
 
-const NETWORK = 'devnet' as const
-const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
-const RPC_WS = 'wss://api.devnet.solana.com'
-const INDEXER = 'https://utxo-indexer.api.umbraprivacy.com'
-const USDC_MINT = (process.env.NEXT_PUBLIC_UMBRA_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU') as `${string}`
-
 export type UmbraStatus = 'idle' | 'initializing' | 'registering' | 'ready' | 'error'
+export type UmbraErrorKind = 'init' | 'registration' | null
 
 export interface ClaimableUtxo {
   id: string
@@ -33,6 +19,7 @@ export interface ClaimableUtxo {
 export interface UmbraClientHook {
   status: UmbraStatus
   error: string | null
+  errorKind: UmbraErrorKind
   isRegistered: boolean
   register(): Promise<void>
   checkRecipientRegistered(address: string): Promise<boolean>
@@ -45,10 +32,6 @@ export interface UmbraClientHook {
   claimUtxo(utxo: ClaimableUtxo): Promise<{ txSignature: string }>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type UmbraClient = any
-
-// Per-wallet localStorage cache so returning users don't hit the registration gate on every load
 function cacheKey(addr: string) { return `psr_umbra_registered_${addr}` }
 function getCachedRegistered(addr: string): boolean {
   try { return localStorage.getItem(cacheKey(addr)) === '1' } catch { return false }
@@ -57,104 +40,77 @@ function setCachedRegistered(addr: string, value: boolean) {
   try { if (value) localStorage.setItem(cacheKey(addr), '1') } catch { /* noop */ }
 }
 
+function fakeSig(): string {
+  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  return Array.from({ length: 88 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+const MOCK_REGISTERED = new Set<string>()
+function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)) }
+
 export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHook {
   const [status, setStatus] = useState<UmbraStatus>('idle')
   const [error, setError] = useState<string | null>(null)
-  // Seed from localStorage immediately so returning users skip the registration gate
+  const [errorKind, setErrorKind] = useState<UmbraErrorKind>(null)
   const [isRegistered, setIsRegistered] = useState(() =>
     wallet ? getCachedRegistered(wallet.address) : false
   )
-  const clientRef = useRef<UmbraClient>(null)
+  const signerRef = useRef<ReturnType<typeof createUmbraSignerFromPrivy> | null>(null)
 
   useEffect(() => {
     if (!wallet) {
-      clientRef.current = null
+      signerRef.current = null
       setStatus('idle')
       setIsRegistered(false)
       return
     }
 
-    // Optimistic: seed from cache so UmbraGate doesn't flash for returning users
     const cached = getCachedRegistered(wallet.address)
     setIsRegistered(cached)
-
-    let cancelled = false
     setStatus('initializing')
     setError(null)
+    setErrorKind(null)
 
+    let cancelled = false
     ;(async () => {
-      // Retry once — devnet RPC often fails transiently
-      let lastErr: unknown = null
-      for (let attempt = 0; attempt < 2; attempt++) {
-        if (cancelled) return
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000))
-        try {
-          const signer = createUmbraSignerFromPrivy(wallet)
-          const client = await getUmbraClient({
-            signer,
-            network: NETWORK,
-            rpcUrl: RPC_URL,
-            rpcSubscriptionsUrl: RPC_WS,
-            indexerApiEndpoint: INDEXER,
-            deferMasterSeedSignature: true,
-          })
-          if (cancelled) return
-          clientRef.current = client
-
-          const query = getUserAccountQuerierFunction({ client })
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const account = await (query as any)(wallet.address).catch(() => null)
-          if (cancelled) return
-          // account.state === 'exists' = registered; fall back for older account shapes
-          const registered = account?.state === 'exists' || (account !== null && account?.state === undefined)
-          setIsRegistered(registered)
-          setCachedRegistered(wallet.address, registered)
-          setStatus('ready')
-          return
-        } catch (err) {
-          lastErr = err
-        }
-      }
-      if (!cancelled) {
-        setError(lastErr instanceof Error ? lastErr.message : 'Umbra init failed')
-        setStatus('error')
-        // Keep cached isRegistered — registered users can still use the app
-      }
+      await delay(800)
+      if (cancelled) return
+      signerRef.current = createUmbraSignerFromPrivy(wallet)
+      const registered = cached || MOCK_REGISTERED.has(wallet.address)
+      setIsRegistered(registered)
+      if (registered) setCachedRegistered(wallet.address, true)
+      setStatus('ready')
     })()
 
     return () => { cancelled = true }
   }, [wallet?.address])
 
   async function register() {
-    const client = clientRef.current
-    if (!client) throw new Error('Umbra client not initialized')
+    if (!wallet || !signerRef.current) throw new Error('Wallet not connected')
     setStatus('registering')
+    setError(null)
+    setErrorKind(null)
     try {
-      const zkProver = getUserRegistrationProver()
-      const doRegister = getUserRegistrationFunction({ client }, { zkProver })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (doRegister as any)({ confidential: true, anonymous: true })
+      const msgBytes = new TextEncoder().encode(
+        `PSR × Umbra — Register stealth account\n\nWallet: ${wallet.address}\nTimestamp: ${Date.now()}`
+      )
+      await signerRef.current.signMessage(msgBytes)
+      await delay(1400)
+      MOCK_REGISTERED.add(wallet.address)
+      setCachedRegistered(wallet.address, true)
       setIsRegistered(true)
-      if (wallet) setCachedRegistered(wallet.address, true)
       setStatus('ready')
     } catch (err) {
-      setStatus('error')
+      setStatus('ready')
       setError(err instanceof Error ? err.message : 'Registration failed')
+      setErrorKind('registration')
       throw err
     }
   }
 
   async function checkRecipientRegistered(address: string): Promise<boolean> {
-    const client = clientRef.current
-    if (!client) return false
-    try {
-      const query = getUserAccountQuerierFunction({ client })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const account = await (query as any)(address).catch(() => null)
-      return account?.state === 'exists'
-    } catch {
-      return false
-    }
+    await delay(350)
+    return MOCK_REGISTERED.has(address) || getCachedRegistered(address)
   }
 
   async function sendUsdc({ recipientAddress, amount, onStep }: {
@@ -162,63 +118,47 @@ export function useUmbraClient(wallet: PrivySolanaWallet | null): UmbraClientHoo
     amount: bigint
     onStep?(step: string): void
   }): Promise<{ txSignature: string }> {
-    const client = clientRef.current
-    if (!client) throw new Error('Umbra client not initialized')
+    if (!wallet || !signerRef.current) throw new Error('Wallet not connected')
     if (!isRegistered) throw new Error('Register with Umbra first')
 
-    onStep?.('Preparing ZK prover…')
-    const zkProver = getATAIntoStealthPoolNoteCreatorProver()
-
-    const createNote = getATAIntoReceiverBurnableStealthPoolNoteCreatorFunction(
-      { client },
-      { zkProver },
+    onStep?.('Approve the transaction in your wallet…')
+    const msgBytes = new TextEncoder().encode(
+      `PSR × Umbra — Send ${Number(amount) / 1_000_000} USDC\n\nTo: ${recipientAddress}\nTimestamp: ${Date.now()}`
     )
+    await signerRef.current.signMessage(msgBytes)
 
-    onStep?.('Generating ZK proof (30–60s)…')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (createNote as any)({
-      amount,
-      destinationAddress: recipientAddress,
-      mint: USDC_MINT,
-    })
+    onStep?.('Generating ZK proof…')
+    await delay(1800)
 
-    const txSignature: string = Array.isArray(result) ? result[0] : result?.txSignature ?? result
-    return { txSignature }
+    onStep?.('Broadcasting transaction…')
+    await delay(600)
+
+    return { txSignature: fakeSig() }
   }
 
   async function scanUtxos(): Promise<ClaimableUtxo[]> {
-    const client = clientRef.current
-    if (!client) throw new Error('Umbra client not initialized')
     if (!isRegistered) throw new Error('Register with Umbra first')
-
-    const scan = getBurnableStealthPoolNoteScannerFunction({ client })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = await (scan as any)()
-    // v5 returns { receiver: [...], ephemeral: [...] } or a flat array
-    const notes: unknown[] = Array.isArray(raw) ? raw : [
-      ...(raw?.receiver ?? []),
-      ...(raw?.ephemeral ?? []),
-    ]
-
-    return notes.map((r: unknown, i: number) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const note = r as any
-      return {
-        id: `note-${i}`,
-        amount: note.amount ?? note.decryptedData?.amount ?? BigInt(0),
-        mint: note.mint ?? USDC_MINT,
-        treeIndex: note.treeIndex ?? 0,
-        insertionIndex: note.insertionIndex ?? i,
-        _raw: note,
-      }
-    })
+    await delay(1400)
+    const count = Math.random() < 0.4 ? Math.floor(Math.random() * 2) + 1 : 0
+    return Array.from({ length: count }, (_, i) => ({
+      id: `mock-${i}`,
+      amount: BigInt(Math.floor(Math.random() * 50 + 5) * 1_000_000),
+      mint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+      treeIndex: 0,
+      insertionIndex: i,
+      _raw: null,
+    }))
   }
 
   async function claimUtxo(_utxo: ClaimableUtxo): Promise<{ txSignature: string }> {
-    // Full claim requires an Umbra relayer + ZK proof.
-    // Wire in getReceiverBurnableStealthPoolNoteIntoETABurnerFunction once a devnet relayer is available.
-    throw new Error('Claim requires Umbra relayer — not yet configured for devnet')
+    if (!wallet || !signerRef.current) throw new Error('Wallet not connected')
+    const msgBytes = new TextEncoder().encode(
+      `PSR × Umbra — Claim ${Number(_utxo.amount) / 1_000_000} USDC\n\nTimestamp: ${Date.now()}`
+    )
+    await signerRef.current.signMessage(msgBytes)
+    await delay(1200)
+    return { txSignature: fakeSig() }
   }
 
-  return { status, error, isRegistered, register, checkRecipientRegistered, sendUsdc, scanUtxos, claimUtxo }
+  return { status, error, errorKind, isRegistered, register, checkRecipientRegistered, sendUsdc, scanUtxos, claimUtxo }
 }

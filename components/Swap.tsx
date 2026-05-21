@@ -297,7 +297,7 @@ export default function Swap({
                   ) : recipientRegistered === true ? (
                     <span className="text-emerald-600">✓ On Umbra</span>
                   ) : recipientRegistered === false ? (
-                    <span className="text-amber-500" title="Recipient must register on PSR before they can claim this payment">
+                    <span className="text-amber-500" title="Recipient must register on Swiss before they can claim this payment">
                       Must register to claim
                     </span>
                   ) : null}
@@ -317,7 +317,7 @@ export default function Swap({
             />
             {recipientRegistered === false && !checkingRecipient && (
               <p className="text-[10px] text-[#737373] leading-relaxed">
-                Recipient hasn&apos;t registered on PSR yet. They&apos;ll need to connect their wallet and register with Umbra before they can claim this payment.
+                Recipient hasn&apos;t registered on Swiss yet. They&apos;ll need to connect their wallet and register with Umbra before they can claim this payment.
               </p>
             )}
           </div>
@@ -381,17 +381,17 @@ export default function Swap({
               !umbra.isRegistered ||
               isInsufficient
             }
-            className="w-[300px] sm:w-[350px] rounded-full bg-[#000000] hover:bg-[#1a1a1a] py-3 text-sm font-semibold text-[#ffffff] transition-all active:scale-[0.98] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 border border-[#000000] shadow-sm hover:shadow-md"
+            className="w-[300px] sm:w-[350px] rounded-full bg-[#43AED6] hover:bg-[#3a9dc3] py-3 text-sm font-semibold !text-white transition-all active:scale-[0.98] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 border border-[#43AED6] shadow-sm hover:shadow-md"
           >
             {sending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-[#ffffff]" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
                 <span>{sendStep}</span>
               </>
             ) : connectedWallet ? (
               <>
                 <span>Send Private USDC</span>
-                <ArrowRight className="h-4 w-4 text-[#ffffff]" />
+                <ArrowRight className="h-4 w-4 text-white" />
               </>
             ) : (
               <span>Connect Wallet First</span>

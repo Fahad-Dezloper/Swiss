@@ -5,7 +5,7 @@
  * to convert between that format and the Solana wire format Privy accepts.
  */
 import { getTransactionEncoder, getTransactionDecoder } from '@solana/kit'
-import type { IUmbraSigner } from '@umbra-privacy/sdk/interfaces'
+import type { IUmbraSigner } from '@umbra-privacy/sdk'
 
 // Privy's ConnectedStandardSolanaWallet shape
 export interface PrivySolanaWallet {

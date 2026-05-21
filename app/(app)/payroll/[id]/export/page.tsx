@@ -119,7 +119,7 @@ export default function PayrollExportPage({ params }: { params: Promise<{ id: st
           </button>
           <button
             onClick={copyFullAttestation}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-medium hover:bg-[#e0e0e0] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#43AED6] text-white text-xs font-medium hover:bg-[#3a9dc3] transition-colors"
           >
             {copied === 'full' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied === 'full' ? 'Copied' : 'Copy Attestation'}
