@@ -297,9 +297,10 @@ export default function Swap({
                   ) : recipientRegistered === true ? (
                     <span className="text-emerald-600">✓ On Umbra</span>
                   ) : recipientRegistered === false ? (
-                    <span className="text-amber-500" title="Recipient must register on Swiss before they can claim this payment">
-                      Must register to claim
-                    </span>
+                    <span
+                      className="text-amber-500"
+                      title="Recipient must register on Swiss before they can claim this payment"
+                    ></span>
                   ) : null}
                 </div>
               )}
@@ -317,7 +318,9 @@ export default function Swap({
             />
             {recipientRegistered === false && !checkingRecipient && (
               <p className="text-[10px] text-[#737373] leading-relaxed">
-                Recipient hasn&apos;t registered on Swiss yet. They&apos;ll need to connect their wallet and register with Umbra before they can claim this payment.
+                Recipient hasn&apos;t registered on Swiss yet. They&apos;ll need
+                to connect their wallet and register with Umbra before they can
+                claim this payment.
               </p>
             )}
           </div>
